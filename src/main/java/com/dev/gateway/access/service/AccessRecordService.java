@@ -94,7 +94,7 @@ public class AccessRecordService {
                 }
             }
 
-            Boolean inWhiteList = exchange.getAttribute(AccessRecordContextKeys.WHITELIST5_MINUTES_FLATMAP);
+            Boolean inWhiteList = exchange.getAttribute(AccessRecordContextKeys.WHITELIST_FLATMAP);
             if (inWhiteList != null) {
                 accessRecord.setInWhiteList(inWhiteList);
             }

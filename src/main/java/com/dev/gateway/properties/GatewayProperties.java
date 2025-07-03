@@ -153,7 +153,7 @@ public class GatewayProperties {
         /**
          * 验证码页面路径
          */
-        private String pagePath = "/dev/static/captcha.html";
+        private String pagePath = "/static/captcha.html";
 
         /**
          * 触发验证码机制的IP数量阈值

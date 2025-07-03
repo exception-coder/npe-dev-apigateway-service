@@ -1,5 +1,6 @@
 package com.dev.gateway.ratelimit.filter;
 
+import com.dev.gateway.access.context.AccessRecordContextKeys;
 import com.dev.gateway.configuration.GlobalFilterOrderConfig;
 import com.dev.gateway.configuration.RateLimiterConfig;
 import com.dev.gateway.properties.GatewayProperties;
@@ -242,7 +243,7 @@ public class ApiRateLimitGlobalFilter implements GlobalFilter, Ordered {
                 .map(whiteListIp -> {
                     boolean isInWhiteList = clientIp.equals(whiteListIp) && !whiteListIp.isEmpty();
                     // 设置白名单属性到Exchange
-                    exchange.getAttributes().put("whiteList5minutesFlatMap", isInWhiteList);
+                    exchange.getAttributes().put(AccessRecordContextKeys.WHITELIST_FLATMAP, isInWhiteList);
                     return isInWhiteList;
                 })
                 .onErrorReturn(false);
@@ -341,8 +342,8 @@ public class ApiRateLimitGlobalFilter implements GlobalFilter, Ordered {
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
 
         // 设置限流属性到Exchange
-        exchange.getAttributes().put("rateLimited", true);
-        exchange.getAttributes().put("rateLimitType", "CAPTCHA_REQUIRED");
+        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
+        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE, "CAPTCHA_REQUIRED");
 
         // 记录限流日志到MongoDB
         String clientIp = MDC.get(MDC_CLIENT_IP);
@@ -380,14 +381,15 @@ public class ApiRateLimitGlobalFilter implements GlobalFilter, Ordered {
                         if (isExceedLimit) {
                             log.warn("检测到IP+路径限流触发 - IP: {}, 路径: {}", clientIp, requestPath);
                             // 设置限流属性到Exchange
-                            exchange.getAttributes().put("rateLimited", true);
-                            exchange.getAttributes().put("rateLimitType", "SLIDING_WINDOW_IP_PATH");
+                            exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
+                            exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE,
+                                    "SLIDING_WINDOW_IP_PATH");
                             // 如果超过限流，返回429错误
                             return handleRateLimitExceeded(exchange);
                         } else {
                             log.debug("IP+路径访问正常，已登记到滑动窗口 - IP: {}, 路径: {}", clientIp, requestPath);
                             // 设置未限流属性到Exchange
-                            exchange.getAttributes().put("rateLimited", false);
+                            exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, false);
                             // 继续处理请求
                             return chain.filter(exchange);
                         }
@@ -396,13 +398,13 @@ public class ApiRateLimitGlobalFilter implements GlobalFilter, Ordered {
                         log.error("滑动窗口IP+路径检查失败 - IP: {}, 路径: {}, 错误: {}", clientIp, requestPath,
                                 throwable.getMessage(), throwable);
                         // 发生错误时继续处理请求，避免因限流组件异常影响正常请求
-                        exchange.getAttributes().put("rateLimited", false);
+                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, false);
                         return chain.filter(exchange);
                     })
                     .doFinally(mdcCleanupCallback);
         } else {
             // 如果IP或路径为空，直接继续处理
-            exchange.getAttributes().put("rateLimited", false);
+            exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, false);
             return chain.filter(exchange).doFinally(mdcCleanupCallback);
         }
     }

@@ -1,5 +1,6 @@
 package com.dev.gateway.ratelimit.filter;
 
+import com.dev.gateway.access.context.AccessRecordContextKeys;
 import com.dev.gateway.configuration.GlobalFilterOrderConfig;
 import com.dev.gateway.ratelimit.properties.RateLimitProperties;
 import com.dev.gateway.ratelimit.service.RateLimitLogService;
@@ -156,12 +157,12 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                 log.info("IP在白名单中，直接放行 - IP: {}", clientIp);
                             }
                             // 设置白名单属性到Exchange
-                            exchange.getAttributes().put("whiteList5minutesFlatMap", true);
-                            exchange.getAttributes().put("rateLimited", false);
+                            exchange.getAttributes().put(AccessRecordContextKeys.WHITELIST_FLATMAP, true);
+                            exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, false);
                             return chain.filter(exchange).doFinally(onFinally);
                         } else {
                             // 设置不在白名单属性到Exchange
-                            exchange.getAttributes().put("whiteList5minutesFlatMap", false);
+                            exchange.getAttributes().put(AccessRecordContextKeys.WHITELIST_FLATMAP, false);
                             // 执行限流检查
                             return performRateLimitCheck(exchange, chain, clientIp);
                         }
@@ -207,8 +208,8 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                     if (!result.isAllowed()) {
                         log.warn("IP限流触发 - IP: {}, 类型: {}", clientIp, result.getLimitType());
                         // 设置限流属性到Exchange
-                        exchange.getAttributes().put("rateLimited", true);
-                        exchange.getAttributes().put("rateLimitType", "IP_RATE_LIMIT");
+                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
+                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE, "IP_RATE_LIMIT");
 
                         // 记录IP限流日志到MongoDB - 使用正确的参数
                         rateLimitLogService.recordRateLimitLog(exchange, clientIp, "IP_RATE_LIMIT",
@@ -218,7 +219,7 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                         return redirectToCaptcha(exchange);
                     }
                     // 设置未限流属性到Exchange
-                    exchange.getAttributes().put("rateLimited", false);
+                    exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, false);
                     // 检查DDoS防护
                     return checkDDoSProtection(exchange, chain, clientIp);
                 });
@@ -292,8 +293,9 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                     } else {
                                         log.info("验证码机制生效中，重定向到验证码页面 - IP: {}, 活跃IP数: {}", clientIp, ipCount);
                                         // 设置DDoS限流属性到Exchange
-                                        exchange.getAttributes().put("rateLimited", true);
-                                        exchange.getAttributes().put("rateLimitType", "DDOS_PROTECTION");
+                                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
+                                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE,
+                                                "DDOS_PROTECTION");
 
                                         // 记录DDoS防护日志到MongoDB
                                         rateLimitLogService.recordDdosLog(exchange, clientIp, "DDOS_PROTECTION",
@@ -307,8 +309,9 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                     if (ipCount >= rateLimitProperties.getDdosThresholdIpCount()) {
                                         log.warn("检测到DDoS攻击，启用验证码机制 - 活跃IP数: {}", ipCount);
                                         // 设置DDoS限流属性到Exchange
-                                        exchange.getAttributes().put("rateLimited", true);
-                                        exchange.getAttributes().put("rateLimitType", "DDOS_THRESHOLD");
+                                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
+                                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE,
+                                                "DDOS_THRESHOLD");
 
                                         // 记录DDoS阈值触发日志到MongoDB
                                         rateLimitLogService.recordDdosLog(exchange, clientIp, "DDOS_THRESHOLD",

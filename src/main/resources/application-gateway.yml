@@ -14,7 +14,7 @@ gateway:
     # 验证码配置
     captcha:
       # 验证码页面路径
-      page-path: /dev/static/captcha.html
+      page-path: /static/captcha.html
       # 触发验证码机制的IP数量阈值
       trigger-ip-threshold: 50
       # 解除验证码机制的IP数量阈值

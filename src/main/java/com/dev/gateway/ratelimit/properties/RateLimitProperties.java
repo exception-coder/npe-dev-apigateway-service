@@ -62,7 +62,7 @@ public class RateLimitProperties {
      * 需要跳过限流检查的路径
      */
     private String[] skipPaths = {
-            "/dev/static/captcha.html",
+            "/static/captcha.html",
             "/api/rate-limit/**",
             "/actuator/**"
     };
@@ -75,5 +75,5 @@ public class RateLimitProperties {
     /**
      * 验证码页面路径
      */
-    private String captchaPagePath = "/dev/static/captcha.html";
+    private String captchaPagePath = "/static/captcha.html";
 } 

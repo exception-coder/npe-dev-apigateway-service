@@ -72,14 +72,14 @@ gateway:
     
     # 跳过限流检查的路径
     skip-paths:
-      - "/dev/static/captcha.html"
+      - "/static/captcha.html"
       - "/api/rate-limit/**"
       - "/actuator/**"
       - "/favicon.ico"
     
     # 其他配置
     verbose-logging: true            # 是否启用详细日志
-    captcha-page-path: "/dev/static/captcha.html"  # 验证码页面路径
+    captcha-page-path: "/static/captcha.html"  # 验证码页面路径
 
 # Redis配置示例（当使用Redis存储时）
 # 注意：如果 storage-type 设置为 REDIS，需要确保Redis配置正确

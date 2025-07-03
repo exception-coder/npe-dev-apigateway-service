@@ -1,5 +1,6 @@
 package com.dev.gateway.ratelimit.service;
 
+import com.dev.gateway.access.context.AccessRecordContextKeys;
 import com.dev.gateway.ratelimit.model.RateLimitLogEntity;
 import com.dev.gateway.ratelimit.repository.RateLimitLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -66,7 +67,7 @@ public class RateLimitLogService {
                     .windowSizeSeconds(windowSize)
                     .triggerTime(LocalDateTime.now())
                     .responseStatus(429) // Too Many Requests
-                    .inWhiteList((Boolean) exchange.getAttributes().get("whiteList5minutesFlatMap"))
+                    .inWhiteList((Boolean) exchange.getAttributes().get(AccessRecordContextKeys.WHITELIST_FLATMAP))
                     .isDdosAttack(isDdosRelated(rateLimitType))
                     .createTime(LocalDateTime.now())
                     .requestId(request.getId())
@@ -116,7 +117,7 @@ public class RateLimitLogService {
                     .limitThreshold(threshold)
                     .triggerTime(LocalDateTime.now())
                     .responseStatus(302) // Redirect to captcha
-                    .inWhiteList((Boolean) exchange.getAttributes().get("whiteList5minutesFlatMap"))
+                    .inWhiteList((Boolean) exchange.getAttributes().get(AccessRecordContextKeys.WHITELIST_FLATMAP))
                     .isDdosAttack(true)
                     .createTime(LocalDateTime.now())
                     .requestId(request.getId())
@@ -158,7 +159,7 @@ public class RateLimitLogService {
                     .currentRequestCount(ipCount)
                     .triggerTime(LocalDateTime.now())
                     .responseStatus(429) // Too Many Requests
-                    .inWhiteList((Boolean) exchange.getAttributes().get("whiteList5minutesFlatMap"))
+                    .inWhiteList((Boolean) exchange.getAttributes().get(AccessRecordContextKeys.WHITELIST_FLATMAP))
                     .isDdosAttack(false)
                     .createTime(LocalDateTime.now())
                     .requestId(request.getId())
