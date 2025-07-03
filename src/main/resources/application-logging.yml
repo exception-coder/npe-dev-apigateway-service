@@ -1,0 +1,51 @@
+# 日志模块配置示例
+gateway:
+  logging:
+    # 基础配置
+    access-log-enabled: true          # 启用访问日志
+    request-body-enabled: false       # 启用请求体日志
+    response-body-enabled: false      # 启用响应体日志
+    verbose-logging: false            # 详细日志模式
+    
+    # 日志内容配置
+    log-headers: false                # 记录请求头
+    log-response-headers: false       # 记录响应头
+    log-level: "INFO"                 # 日志级别
+    
+    # 长度限制
+    max-request-body-length: 1000     # 最大请求体记录长度
+    max-response-body-length: 1000    # 最大响应体记录长度
+    
+    # 跳过日志记录的路径
+    skip-paths:
+      - "/actuator/**"
+      - "/health/**"
+      - "/favicon.ico"
+      - "/static/**"
+    
+    # 敏感信息过滤关键词
+    sensitive-fields:
+      - "password"
+      - "token"
+      - "secret"
+      - "key"
+      - "authorization"
+      - "credentials"
+
+
+# Spring Boot日志配置
+logging:
+  access_log_file: ${user.home}/logs/access/${spring.application.name}.log
+  level:
+    org.springframework.cloud.sleuth: DEBUG
+    # 开启详细日志时的配置
+    # com.dev.gateway.logging.service.LoggingService: DEBUG
+    # com.dev.gateway.logging.filter: DEBUG
+    io.lettuce.core: INFO
+
+
+  pattern:
+    # 控制台日志格式
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId}] [%X{clientIp}] %logger{36} - %msg%n"
+    # 文件日志格式
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{requestId}] [%X{clientIp}] [%X{requestPath}] %logger{36} - %msg%n" 

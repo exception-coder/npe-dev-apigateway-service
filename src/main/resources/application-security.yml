@@ -1,0 +1,20 @@
+# XSS响应体清理过滤器配置
+security:
+  filter:
+    # 启用XSS检查
+    enable-xss-check: true
+    # 启用详细日志
+    enable-detailed-logging: false
+    # 跳过XSS清理的路径
+    skip-paths:
+      - "/actuator/**"
+      - "/health"
+      - "/favicon.ico"
+      - "/swagger-ui/**"
+      - "/v3/api-docs/**"
+      - "/static/**"
+    # 跳过XSS清理的User-Agent
+    skip-user-agents:
+      - "HealthCheck"
+      - "Prometheus"
+      - "Monitor" 

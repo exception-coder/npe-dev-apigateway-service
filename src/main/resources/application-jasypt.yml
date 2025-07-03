@@ -1,0 +1,19 @@
+# Jasypt 配置加密设置
+jasypt:
+  encryptor:
+    # 加密算法
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    # 加密密钥（生产环境通过环境变量设置）
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:GatewayConfigEncryptKey2024!}
+    # key 获取迭代次数
+    key-obtention-iterations: 1000
+    # 池大小
+    pool-size: 1
+    # 盐值生成器
+    salt-generator-classname: org.jasypt.salt.RandomSaltGenerator
+    # IV 生成器
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    # 字符串输出类型
+    string-output-type: base64
+    # Bean 名称
+    bean: jasyptStringEncryptor 

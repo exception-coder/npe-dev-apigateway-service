@@ -1,0 +1,104 @@
+# 网关限流配置
+gateway:
+  sys:
+    # 限流配置
+    rate-limit:
+      # 是否启用限流功能
+      enabled: true
+      
+      # 滑动窗口配置
+      sliding-window:
+        # 存储类型：LOCAL_MEMORY（本地内存）或 REDIS（Redis存储）
+        # LOCAL_MEMORY: 适用于单机部署，性能更好，但无法跨实例共享
+        # REDIS: 适用于分布式部署，数据可跨实例共享，但性能略低
+        storage-type: LOCAL_MEMORY
+        
+        # 默认时间窗口大小（秒）
+        default-window-size: 3
+        
+        # 默认时间窗口内允许的最大请求数
+        default-max-requests: 2
+        
+        # 路径级别的限流规则
+        path-rules:
+          # API接口相对宽松
+          - path: "/pure-admin-service/**"
+            window-size: 1
+            max-requests: 2
+            enabled: true
+            description: "API接口限流"
+
+          - path: "/pure-admin-service/gpt/**"
+            window-size: 15
+            max-requests: 1
+            enabled: true
+            description: "AI接口限流"
+
+          # 登录接口严格限制
+          - path: "/api/auth/login"
+            window-size: 60
+            max-requests: 5
+            enabled: true
+            description: "登录接口限流"
+
+          # 静态资源较宽松
+          - path: "/static/**"
+            window-size: 10
+            max-requests: 50
+            enabled: true
+            description: "静态资源限流"
+
+
+  # 其他限流相关配置（兼容原有配置）
+  rate-limit:
+    # 是否启用限流功能
+    enabled: true
+    
+    # 限流参数配置
+    max-requests-per-minute: 60      # 每分钟最大请求数
+    max-requests-per-second: 10      # 每秒最大请求数
+    
+    # DDoS防护参数
+    ddos-threshold-ip-count: 50      # 触发DDoS防护的IP数量
+    ddos-release-ip-count: 10        # 解除DDoS防护的IP数量
+    
+    # 缓存过期时间配置
+    white-list-duration-minutes: 5   # 白名单有效期（分钟）
+    captcha-duration-minutes: 5      # 验证码机制有效期（分钟）
+    ip-track-duration-seconds: 10    # IP访问跟踪时间窗口（秒）
+    
+    # Redis键前缀
+    redis-key-prefix: "rate_limit"
+    
+    # 跳过限流检查的路径
+    skip-paths:
+      - "/dev/static/captcha.html"
+      - "/api/rate-limit/**"
+      - "/actuator/**"
+      - "/favicon.ico"
+    
+    # 其他配置
+    verbose-logging: true            # 是否启用详细日志
+    captcha-page-path: "/dev/static/captcha.html"  # 验证码页面路径
+
+# Redis配置示例（当使用Redis存储时）
+# 注意：如果 storage-type 设置为 REDIS，需要确保Redis配置正确
+spring:
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-wait: -1ms
+        max-idle: 8
+        min-idle: 0
+
+# 日志配置
+logging:
+  level:
+    com.dev.gateway.filter.RedisRateLimitGlobalFilter: INFO
+    com.dev.gateway.controller.RateLimitController: INFO
+    com.dev.gateway.ratelimit: DEBUG 

@@ -1,0 +1,77 @@
+gateway:
+  # 浏览器检测配置 - 用于区分真实浏览器和爬虫/机器人请求
+  browser-detection:
+    # 启用浏览器检测功能
+    enabled: false
+    # 检测严格程度：STRICT(严格)、MODERATE(中等)、LOOSE(宽松)
+    strictness: MODERATE
+    # 启用浏览器检测的详细日志记录
+    verbose-logging: true
+    # User-Agent字符串的最小长度要求
+    min-user-agent-length: 20
+    # User-Agent字符串的最大长度限制
+    max-user-agent-length: 1000
+    # 检查是否支持JavaScript（通过特定头部判断）
+    check-javascript-support: true
+    # 检测到非浏览器请求时返回的HTTP状态码
+    rejection-status-code: 403
+    # 拒绝访问时返回的错误消息
+    rejection-message: "Access denied: Non-browser request detected"
+
+    # 跳过浏览器检测的路径列表 - 这些路径允许非浏览器访问
+    skip-paths:
+      - "/actuator/**"           # Spring Boot监控端点
+      - "/health/**"             # 健康检查端点
+      - "/api/browser-detection/**"  # 浏览器检测相关API
+      - "/dev/static/**"         # 开发环境静态资源
+      - "/api/rate-limit/**"     # 限流相关API
+
+    # 机器人/爬虫User-Agent特征词列表 - 包含这些词的请求会被识别为机器人
+    bot-user-agents:
+      - "bot"                    # 通用机器人标识
+      - "crawl"                  # 爬虫标识
+      - "spider"                 # 蜘蛛程序标识
+      - "scrape"                 # 抓取工具标识
+      - "fetch"                  # 数据获取工具
+      - "curl"                   # curl命令行工具
+      - "wget"                   # wget下载工具
+      - "python"                 # Python脚本
+      - "java"                   # Java应用程序
+      - "go-http-client"         # Go语言HTTP客户端
+      - "okhttp"                 # Android OkHttp客户端
+      - "apache-httpclient"      # Apache HTTP客户端
+      - "requests"               # Python requests库
+      - "urllib"                 # Python urllib库
+      - "mechanize"              # 自动化浏览器库
+      - "scrapy"                 # Python爬虫框架
+      - "phantom"                # PhantomJS无头浏览器
+      - "headless"               # 无头浏览器标识
+      - "automation"             # 自动化工具标识
+      - "selenium"               # Selenium自动化测试工具
+      - "webdriver"              # WebDriver自动化工具
+      - "puppeteer"              # Google Puppeteer工具
+      - "playwright"             # Microsoft Playwright工具
+      - "test"                   # 测试工具标识
+
+    # 真实浏览器User-Agent特征词列表 - 包含这些词的请求更可能是真实浏览器
+    real-browser-user-agents:
+      - "Mozilla"                # Mozilla内核标识
+      - "Chrome"                 # Google Chrome浏览器
+      - "Safari"                 # Apple Safari浏览器
+      - "Firefox"                # Mozilla Firefox浏览器
+      - "Edge"                   # Microsoft Edge浏览器
+      - "Opera"                  # Opera浏览器
+      - "Brave"                  # Brave浏览器
+
+    # 真实浏览器必须包含的HTTP头部列表
+    required-browser-headers:
+      - "Accept"                 # 接受的内容类型
+      - "Accept-Language"        # 接受的语言
+      - "Accept-Encoding"        # 接受的编码方式
+      - "Connection"             # 连接类型
+
+    # 可疑HTTP头部列表 - 这些头部通常由代理或自动化工具添加
+    suspicious-headers:
+      - "X-Requested-With"       # XMLHttpRequest标识（AJAX请求）
+      - "X-Forwarded-Proto"      # 代理协议头部
+      - "X-Real-IP"              # 真实IP头部（通常由代理添加）

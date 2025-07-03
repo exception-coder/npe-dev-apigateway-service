@@ -1,0 +1,43 @@
+spring:
+  application:
+    # bootstrap 不配置在nacos推送的时候获取不到 application.name
+    name: microservice-apigateway-service
+  sleuth:
+    sampler:
+      probability: 0.5
+    messaging:
+      enabled: true
+    web:
+      client:
+        enabled: true
+    enabled: false
+  zipkin:
+    base-url: ENC(TsyXizCISZorZZqHduay7DJZC4h5fzh8zT6MRho2n1IAwkYItVh6rYmjlvxq3u/R7idACSresykkxSfhbnhksA==)
+    enabled: false
+    discovery-client-enabled: true
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: ENC(ChncN6mOUvEYqe6BLj9M3Ot8jqQHUG1jnYNjdccbQrqOO3F7eJ8fNN8tq5k9ZC0Nb+rnRO7WXL59m8WnCRvsyA==)
+      username: nacos
+      password: ENC(MdEcafIu4TMMcJhqkHR+l40m6n0j1deEEiCjd2h8AxNbD217Q+b7ngVjxeKDM3dX)
+      config:
+        file-extension: yml
+        namespace: dev
+        refresh-enabled: true
+        context-path: /nacos
+      discovery:
+        namespace: dev
+    discovery:
+      client:
+        health-indicator:
+          enabled: true
+
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: dev

@@ -1,0 +1,82 @@
+# 开发环境网关路由配置
+gateway:
+  route:
+    public-endpoint: lb://pure-admin-service
+  # 网关日志配置 - 用于记录请求响应信息，便于调试和监控
+  logging:
+    # 启用访问日志记录
+    access-log-enabled: true
+    # 记录请求体内容（用于调试，生产环境建议关闭）
+    request-body-enabled: true
+    # 记录响应体内容（通常关闭以减少日志量）
+    response-body-enabled: false
+    # 启用详细日志模式，包含更多调试信息
+    verbose-logging: true
+    # 请求体日志的最大长度限制（字符数）
+    max-request-body-length: 2000
+    # 响应体日志的最大长度限制（字符数）
+    max-response-body-length: 2000
+    # 记录请求头信息
+    log-headers: true
+    # 记录响应头信息（通常关闭以减少日志量）
+    log-response-headers: false
+
+spring:
+  data:
+    mongodb:
+      # MongoDB连接串已加密，密码部分使用ENC()包装
+      uri: ENC(qH+sTb9j/iDQ80aLk9WjJUUkM4niaQmIDSatJMo7lJpieBXFpyii9UFNLNpQTryXyt3kW0Bd4lFBZVptbXbGKHvyZulYi8JAdxRXHSBMovGXZZ0pGnDmnYw6m9n/7BCit0CXVOu78YlxaRUULNb3YOXNW2nkd9Y8CBCyCIubSDu19As5JjPrq3WAna+YsgC3BRyBaFTYW41ARCFgFknG8g==)
+  cloud:
+    gateway:
+      # 网关路由配置 - 定义不同请求路径的转发规则和处理逻辑
+      routes:
+        # 第一个路由：开发环境过滤器测试路由
+        - id: dev_route  # 路由唯一标识符，用于区分不同的路由规则
+          uri: http://127.0.0.1:8099  # 目标服务地址，请求将被转发到此地址
+          predicates:  # 路由匹配条件，满足条件的请求才会使用此路由
+            - Path=/gateway/filter/**  # 路径匹配：匹配所有以/gateway/filter/开头的请求
+          filters:  # 请求处理过滤器链，按顺序执行
+            # 路径重写过滤器 - 将请求路径转换为目标服务能识别的路径
+            - name: RewritePath
+              args:
+                regexp: /gateway/filter/(?<remaining>.*)  # 正则表达式：捕获/gateway/filter/后的所有内容
+                replacement: /dev/filter/$\{remaining}    # 替换规则：转换为/dev/filter/xxx格式
+            # 请求大小限制过滤器 - 防止过大的请求影响系统性能
+            - name: RequestSize
+              args:
+                maxSize: 1MB  # 最大请求体大小限制为1MB
+            # 请求限流过滤器 - 基于Redis实现的分布式限流，防止系统过载
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 1      # 令牌桶每秒补充1个令牌
+                redis-rate-limiter.requestedTokens: 60   # 每个请求消耗60个令牌
+                redis-rate-limiter.burstCapacity: 100    # 令牌桶最大容量100个令牌
+                key-resolver: "#{@ipKeyResolver}"        # 限流key解析器，基于IP地址进行限流
+            # 响应体修改过滤器 - 可以修改返回给客户端的响应内容
+            - name: ModifyResponseBody
+        
+        # 第二个路由：路径重写测试路由
+        - id: rewrite_route  # 路径重写功能测试路由
+          uri: http://127.0.0.1:8099  # 转发到开发环境静态资源服务
+          predicates:
+            - Path=/gateway/rewrite-route/**  # 匹配所有以/gateway/rewrite-route/开头的请求
+          filters:
+            # 简化的路径重写过滤器 - 直接使用RewritePath而不是name形式
+            - RewritePath=/gateway/rewrite-route/(?<remaining>.*), /dev/rewrite-route/$\{remaining}
+            # 请求日志记录过滤器 - 记录进入网关的请求信息，便于调试和监控
+            - name: RequestLogger
+              args:
+                includeHeaders: true   # 记录请求头信息
+                includePayload: false  # 不记录请求体内容（避免敏感信息泄露）
+            # 响应日志记录过滤器 - 记录网关返回的响应信息
+            - name: ResponseLogger
+              args:
+                includeHeaders: false        # 不记录响应头信息
+                includeResponseBody: false   # 不记录响应体内容（减少日志量）
+        
+        # 第三个路由：默认兜底路由
+#        - id: default_route  # 默认路由，处理所有未匹配到具体路由的请求
+#          uri: forward:/default  # 转发到本地/default端点，通常返回404或默认页面
+#          predicates:
+#            - Path=/**  # 匹配所有路径（通配符），作为最后的兜底规则
+

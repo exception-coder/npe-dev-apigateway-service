@@ -1,0 +1,61 @@
+server:
+  port: 9099
+  ssl:
+    enabled: false
+    key-store: classpath:mygateway.p12
+    key-store-password: gatewayP@ssw0rd
+    key-store-type: PKCS12
+    key-alias: mygateway
+
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  codec:
+    max-in-memory-size: 256MB # Exceeded limit on max bytes to buffer : 262144
+  application:
+    name: microservice-apigateway-service
+  profiles:
+    active: dev
+    include:
+      - gateway
+      - logging
+      - rate-limit-redis
+      - browser-detection
+      - jasypt
+  redis:
+    password: ENC(Gx7TwEhyVB17H9y1ly9yGOdkjQ4y8k2cZelr+0Hz3Gp3fFcUO9T3Vj0kzlJ9QUf4UrK4VxBdXyrwcqyzfHQG2Q==)
+    host: ENC(FYRV+7kfe1Cd+ULUdUb3WK3PLw+garYM/QBoHmmyGCiVpf7tq40B09Pa8EhcLqqj)
+    database: 0
+    timeout: 10000ms                 # 增加连接超时时间到10秒
+    connect-timeout: 10000ms         # 连接建立超时时间
+    lettuce:
+      pool:
+        max-active: 100              # 增加最大活跃连接数
+        max-idle: 50                 # 增加最大空闲连接数
+        min-idle: 10                 # 增加最小空闲连接数
+        max-wait: 10000ms            # 增加获取连接的最大等待时间
+      shutdown-timeout: 100ms        # 关闭连接池时的等待时间
+  cloud:
+    gateway:
+      httpclient:
+        # 全局 http 连接超时时间，单位为毫秒
+        connect-timeout: 1000
+        # 全局 http 响应超时时间 需要指定为 java.time.Duration
+        response-timeout: 60s
+      discovery:
+        locator:
+          enabled: true
+
+
+#app:
+#  home: /opt/microservices/${spring.application.name}
+
+
+# 访问记录配置
+access-record:
+  enabled: true
+  async-recording: true
+  retention-days: 30  # 保留30天的记录
+  batch-size: 100     # 批量处理大小
+

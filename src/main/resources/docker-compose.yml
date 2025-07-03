@@ -1,0 +1,8 @@
+version: '3.7'
+services:
+  asent_apigateway:
+    image: microservice-apigateway-service:v1.0.0
+    container_name: microservice-apigateway
+    restart: always
+    ports:
+      - "9080:9080"
