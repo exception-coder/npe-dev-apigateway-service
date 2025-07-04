@@ -31,6 +31,17 @@ public final class AccessRecordContextKeys {
      */
     public static final String WHITELIST_FLATMAP = "access.context.whiteListFlatMap";
 
+    // ================= 黑名单相关 =================
+
+    /**
+     * 黑名单标识
+     */
+    public static final String BLACKLIST_FLATMAP = "access.context.blackListFlatMap";
+
+    /**
+     * 黑名单信息
+     */
+    public static final String BLACKLIST_INFO = "access.context.blackListInfo";
 
     // ================= 请求记录相关 =================
 

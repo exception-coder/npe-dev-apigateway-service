@@ -44,6 +44,16 @@ public class RateLimitProperties {
     private int whiteListDurationMinutes = 5;
 
     /**
+     * 黑名单有效期（分钟）
+     */
+    private int blackListDurationMinutes = 30;
+
+    /**
+     * 是否启用黑名单功能
+     */
+    private boolean blackListEnabled = true;
+
+    /**
      * 验证码机制有效期（分钟）
      */
     private int captchaDurationMinutes = 5;

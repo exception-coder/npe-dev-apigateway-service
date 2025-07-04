@@ -62,6 +62,7 @@ gateway:
 
     # 缓存过期时间配置
     white-list-duration-minutes: 5   # 白名单有效期（分钟）
+    black-list-duration-minutes: 30  # 黑名单有效期（分钟）
     captcha-duration-minutes: 5      # 验证码机制有效期（分钟）
     ip-track-duration-seconds: 10    # IP访问跟踪时间窗口（秒）
 

@@ -49,10 +49,11 @@ public class CaptchaController {
 
     private final XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver;
 
-    public CaptchaController(Producer captchaProducer, @Qualifier("ipSetLast10Seconds") ExpiringValueService ipSetLast10Seconds,
-                             @Qualifier("ipWithCaptcha1Minutes") ExpiringValueService ipWithCaptcha1Minutes,
-                             @Qualifier("whiteList5minutes") ExpiringValueService whiteList5minutes, RateLimitService rateLimitService,
-                             XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver) {
+    public CaptchaController(Producer captchaProducer,
+            @Qualifier("ipSetLast10Seconds") ExpiringValueService ipSetLast10Seconds,
+            @Qualifier("ipWithCaptcha1Minutes") ExpiringValueService ipWithCaptcha1Minutes,
+            @Qualifier("whiteList5minutes") ExpiringValueService whiteList5minutes, RateLimitService rateLimitService,
+            XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver) {
         this.captchaProducer = captchaProducer;
         this.ipSetLast10Seconds = ipSetLast10Seconds;
         this.ipWithCaptcha1Minutes = ipWithCaptcha1Minutes;
@@ -66,13 +67,12 @@ public class CaptchaController {
         // 由于Redis操作是异步的，我们需要组合多个Mono来获取所有信息
         return Mono.zip(
                 rateLimitService.getLast10SecondsReqIpCount(),
-                rateLimitService.getCaptchaRequired()
-        ).map(tuple -> {
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("last10SecondsReqIpsCount", tuple.getT1());
-            jsonObject.put("captchaRequired", tuple.getT2());
-            return jsonObject;
-        });
+                rateLimitService.getCaptchaRequired()).map(tuple -> {
+                    JSONObject jsonObject = new JSONObject();
+                    jsonObject.put("last10SecondsReqIpsCount", tuple.getT1());
+                    jsonObject.put("captchaRequired", tuple.getT2());
+                    return jsonObject;
+                });
     }
 
     @Deprecated
@@ -90,7 +90,8 @@ public class CaptchaController {
                 "    <label for=\"captcha\">Enter Captcha:</label>\n" +
                 "    <input type=\"text\" name=\"captcha\" id=\"captcha\" required>\n" +
                 "    <br>\n" +
-                "    <img src=\"/captcha\" alt=\"Captcha Image\" onclick=\"this.src='/captcha?' + Math.random();\" style=\"cursor:pointer;\">\n" +
+                "    <img src=\"/captcha\" alt=\"Captcha Image\" onclick=\"this.src='/captcha?' + Math.random();\" style=\"cursor:pointer;\">\n"
+                +
                 "    <br>\n" +
                 "    <input type=\"submit\" value=\"Submit\">\n" +
                 "</form>\n" +
@@ -113,18 +114,30 @@ public class CaptchaController {
             String clientIp = xForwardedRemoteAddressResolver.resolve(exchange).getAddress().getHostAddress();
             String captcha = formData.getFirst("captcha");
             log.info("ip:{},验证码:{}", clientIp, captcha);
-            
+
             return rateLimitService.getCaptcha1MinutesWithIp(clientIp)
                     .flatMap(storedCaptcha -> validateCaptcha(exchange, storedCaptcha, captcha, clientIp));
         });
     }
 
-    private @NotNull Mono<Void> validateCaptcha(ServerWebExchange exchange, String storedCaptcha, String captcha, String clientIp) {
+    private @NotNull Mono<Void> validateCaptcha(ServerWebExchange exchange, String storedCaptcha, String captcha,
+            String clientIp) {
         if (captcha.equals(storedCaptcha)) {
             log.info("验证码验证成功");
             exchange.getResponse().setStatusCode(HttpStatus.FOUND);
-            return rateLimitService.setWhiteList5minutes(clientIp)
+
+            // 验证成功：先从黑名单移除，再添加到白名单
+            return rateLimitService.removeFromBlackList(clientIp)
+                    .doOnNext(blacklistRemoved -> {
+                        if (blacklistRemoved) {
+                            log.info("验证码验证成功，IP已从黑名单移除 - IP: {}", clientIp);
+                        } else {
+                            log.debug("IP不在黑名单中或移除失败 - IP: {}", clientIp);
+                        }
+                    })
+                    .then(rateLimitService.setWhiteList5minutes(clientIp))
                     .flatMap(success -> {
+                        log.info("验证码验证成功，IP已添加到白名单 - IP: {}", clientIp);
                         exchange.getResponse().getHeaders().setLocation(URI.create("/"));
                         return exchange.getResponse().setComplete().doFinally(Objects.requireNonNull(signalType -> {
                             MDC.remove("clientIp");
@@ -179,7 +192,6 @@ public class CaptchaController {
                 // 如果有异常，释放 DataBuffer
                 DataBufferUtils.release(buffer);
             });
-
 
         } catch (IOException e) {
             log.error("返回验证码图片异常,异常信息:{}", e.getMessage());

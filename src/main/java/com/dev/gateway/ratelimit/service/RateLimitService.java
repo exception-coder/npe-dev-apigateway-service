@@ -33,6 +33,7 @@ public class RateLimitService {
     private static final String SLIDING_WINDOW_TEMPLATE = "%s:sliding_window:%s:%s";
     private static final String IP_ACCESS_TEMPLATE = "%s:ip_access:%s";
     private static final String WHITE_LIST_TEMPLATE = "%s:white_list:%s";
+    private static final String BLACK_LIST_TEMPLATE = "%s:black_list:%s";
     private static final String CAPTCHA_REQUIRED_TEMPLATE = "%s:captcha_required";
     private static final String IP_CAPTCHA_TEMPLATE = "%s:ip_captcha:%s";
 
@@ -312,6 +313,100 @@ public class RateLimitService {
     public Mono<Boolean> removeFromWhiteList(String clientIp) {
         String key = String.format(WHITE_LIST_TEMPLATE, rateLimitProperties.getRedisKeyPrefix(), clientIp);
         return redisTemplate.delete(key).map(count -> count > 0);
+    }
+
+    /**
+     * 检查IP是否在黑名单中
+     * 添加超时处理和重试机制
+     */
+    public Mono<Boolean> isInBlackList(String clientIp) {
+        String key = String.format(BLACK_LIST_TEMPLATE, rateLimitProperties.getRedisKeyPrefix(), clientIp);
+
+        return redisTemplate.hasKey(key)
+                .timeout(REDIS_TIMEOUT)
+                .retryWhen(Retry.backoff(MAX_RETRY_ATTEMPTS, Duration.ofMillis(100))
+                        .filter(this::isRetryableException))
+                .doOnNext(result -> {
+                    if (rateLimitProperties.isVerboseLogging()) {
+                        log.debug("黑名单检查结果 - IP: {}, 在黑名单: {}", clientIp, result);
+                    }
+                })
+                .doOnError(throwable -> {
+                    log.error("Redis黑名单检查失败 - IP: {}, 错误: {}", clientIp, throwable.getMessage());
+                })
+                .onErrorReturn(false); // 异常时默认返回false，不在黑名单中
+    }
+
+    /**
+     * 将IP添加到黑名单
+     * 
+     * @param clientIp        客户端IP
+     * @param reason          加入黑名单的原因
+     * @param durationMinutes 黑名单有效期（分钟）
+     */
+    public Mono<Boolean> addToBlackList(String clientIp, String reason, int durationMinutes) {
+        String key = String.format(BLACK_LIST_TEMPLATE, rateLimitProperties.getRedisKeyPrefix(), clientIp);
+        Duration expiry = Duration.ofMinutes(durationMinutes);
+
+        // 存储原因和时间戳
+        String value = String.format("reason:%s,timestamp:%d", reason, System.currentTimeMillis());
+
+        return redisTemplate.opsForValue()
+                .set(key, value, expiry)
+                .timeout(REDIS_TIMEOUT)
+                .retryWhen(Retry.backoff(MAX_RETRY_ATTEMPTS, Duration.ofMillis(100))
+                        .filter(this::isRetryableException))
+                .doOnNext(result -> {
+                    if (result) {
+                        log.warn("IP已添加到黑名单 - IP: {}, 原因: {}, 有效期: {}分钟", clientIp, reason, durationMinutes);
+                    }
+                })
+                .doOnError(throwable -> {
+                    log.error("Redis添加黑名单失败 - IP: {}, 错误: {}", clientIp, throwable.getMessage());
+                })
+                .onErrorReturn(false); // 异常时返回false
+    }
+
+    /**
+     * 从黑名单移除IP
+     */
+    public Mono<Boolean> removeFromBlackList(String clientIp) {
+        String key = String.format(BLACK_LIST_TEMPLATE, rateLimitProperties.getRedisKeyPrefix(), clientIp);
+
+        return redisTemplate.delete(key)
+                .map(count -> count > 0)
+                .timeout(REDIS_TIMEOUT)
+                .retryWhen(Retry.backoff(MAX_RETRY_ATTEMPTS, Duration.ofMillis(100))
+                        .filter(this::isRetryableException))
+                .doOnNext(result -> {
+                    if (result) {
+                        log.info("IP已从黑名单移除 - IP: {}", clientIp);
+                    }
+                })
+                .doOnError(throwable -> {
+                    log.error("Redis移除黑名单失败 - IP: {}, 错误: {}", clientIp, throwable.getMessage());
+                })
+                .onErrorReturn(false); // 异常时返回false
+    }
+
+    /**
+     * 获取黑名单IP信息
+     * 
+     * @param clientIp 客户端IP
+     * @return 黑名单信息（包含原因和时间戳）
+     */
+    public Mono<String> getBlackListInfo(String clientIp) {
+        String key = String.format(BLACK_LIST_TEMPLATE, rateLimitProperties.getRedisKeyPrefix(), clientIp);
+
+        return redisTemplate.opsForValue()
+                .get(key)
+                .timeout(REDIS_TIMEOUT)
+                .retryWhen(Retry.backoff(MAX_RETRY_ATTEMPTS, Duration.ofMillis(100))
+                        .filter(this::isRetryableException))
+                .doOnError(throwable -> {
+                    log.error("Redis获取黑名单信息失败 - IP: {}, 错误: {}", clientIp, throwable.getMessage());
+                })
+                .onErrorReturn(""); // 异常时返回空字符串
     }
 
     /**

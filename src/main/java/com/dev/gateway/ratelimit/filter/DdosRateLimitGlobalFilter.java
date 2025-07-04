@@ -160,8 +160,8 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                         } else {
                             // 设置不在白名单属性到Exchange
                             exchange.getAttributes().put(AccessRecordContextKeys.WHITELIST_FLATMAP, false);
-                            // 执行限流检查
-                            return performRateLimitCheck(exchange, chain, clientIp);
+                            // 检查黑名单
+                            return checkBlackListAndProceed(exchange, chain, clientIp);
                         }
                     })
                     .onErrorResume(throwable -> {
@@ -195,6 +195,53 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
     }
 
     /**
+     * 检查黑名单并决定后续处理流程
+     */
+    private Mono<Void> checkBlackListAndProceed(ServerWebExchange exchange, GatewayFilterChain chain, String clientIp) {
+        return rateLimitService.isInBlackList(clientIp)
+                .flatMap(isInBlackList -> {
+                    if (isInBlackList) {
+                        if (rateLimitProperties.isVerboseLogging()) {
+                            log.warn("IP在黑名单中，重定向到验证码页面 - IP: {}", clientIp);
+                        }
+
+                        // 设置黑名单限流属性到Exchange
+                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
+                        exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE, "BLACKLIST_BLOCKED");
+                        exchange.getAttributes().put(AccessRecordContextKeys.BLACKLIST_FLATMAP, true);
+
+                        // 获取黑名单信息并记录日志
+                        return rateLimitService.getBlackListInfo(clientIp)
+                                .doOnNext(blacklistInfo -> {
+                                    log.warn("黑名单IP访问被阻止 - IP: {}, 黑名单信息: {}", clientIp, blacklistInfo);
+
+                                    // 设置黑名单信息到Exchange
+                                    exchange.getAttributes().put(AccessRecordContextKeys.BLACKLIST_INFO, blacklistInfo);
+
+                                    // 记录黑名单阻止日志到MongoDB
+                                    rateLimitLogService.recordRateLimitLog(exchange, clientIp, "BLACKLIST_BLOCKED",
+                                            "IP在黑名单中，需要验证码验证 - " + blacklistInfo,
+                                            null, null, null);
+                                })
+                                .then(redirectToCaptcha(exchange));
+                    } else {
+                        if (rateLimitProperties.isVerboseLogging()) {
+                            log.debug("IP不在黑名单中，继续限流检查 - IP: {}", clientIp);
+                        }
+                        // 设置不在黑名单属性到Exchange
+                        exchange.getAttributes().put(AccessRecordContextKeys.BLACKLIST_FLATMAP, false);
+                        // 不在黑名单中，执行正常的限流检查
+                        return performRateLimitCheck(exchange, chain, clientIp);
+                    }
+                })
+                .onErrorResume(throwable -> {
+                    log.error("黑名单检查失败，允许请求通过 - IP: {}, 错误: {}", clientIp, throwable.getMessage());
+                    // 黑名单检查异常时，继续执行限流检查，不影响正常业务
+                    return performRateLimitCheck(exchange, chain, clientIp);
+                });
+    }
+
+    /**
      * 执行限流检查
      */
     private Mono<Void> performRateLimitCheck(ServerWebExchange exchange, GatewayFilterChain chain, String clientIp) {
@@ -213,7 +260,9 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                 "IP访问频率超过限制 - " + result.getLimitType(),
                                 result.getCurrentCount(), result.getThreshold(), result.getWindowSize());
 
-                        return redirectToCaptcha(exchange);
+                        // 将触发限流的IP添加到黑名单
+                        return addToBlackListIfEnabled(clientIp, "IP访问频率超过限制 - " + result.getLimitType())
+                                .then(redirectToCaptcha(exchange));
                     }
                     // 设置未限流属性到Exchange
                     exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, false);
@@ -299,12 +348,14 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                                 "验证码机制生效中，阻止访问", ipCount.intValue(),
                                                 rateLimitProperties.getDdosReleaseIpCount());
 
-                                        return redirectToCaptcha(exchange);
+                                        // 将持续访问的IP添加到黑名单
+                                        return addToBlackListIfEnabled(clientIp, "验证码机制生效期间持续访问")
+                                                .then(redirectToCaptcha(exchange));
                                     }
                                 } else {
                                     // 检查是否需要启用验证码机制
                                     if (ipCount >= rateLimitProperties.getDdosThresholdIpCount()) {
-                                        log.warn("检测到DDoS攻击，启用验证码机制 - 活跃IP数: {}", ipCount);
+                                        log.warn("检测到DDoS攻击，启用验证码机制 - 活跃IP数: {}, IP: {}", ipCount, clientIp);
                                         // 设置DDoS限流属性到Exchange
                                         exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMITED, true);
                                         exchange.getAttributes().put(AccessRecordContextKeys.RATE_LIMIT_TYPE,
@@ -315,7 +366,9 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                                 "检测到DDoS攻击，启用验证码机制", ipCount.intValue(),
                                                 rateLimitProperties.getDdosThresholdIpCount());
 
+                                        // 启用验证码机制并将IP添加到黑名单
                                         return rateLimitService.enableCaptchaRequired()
+                                                .then(addToBlackListIfEnabled(clientIp, "DDoS攻击触发"))
                                                 .then(redirectToCaptcha(exchange));
                                     } else {
                                         // 正常放行
@@ -455,6 +508,38 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                 throwable instanceof java.net.ConnectException ||
                 throwable instanceof java.io.IOException ||
                 throwable instanceof java.util.concurrent.TimeoutException);
+    }
+
+    /**
+     * 如果黑名单功能启用，则将IP添加到黑名单
+     * 
+     * @param clientIp 客户端IP
+     * @param reason   添加原因
+     * @return Mono<Void>
+     */
+    private Mono<Void> addToBlackListIfEnabled(String clientIp, String reason) {
+        if (!rateLimitProperties.isBlackListEnabled()) {
+            if (rateLimitProperties.isVerboseLogging()) {
+                log.debug("黑名单功能未启用，跳过添加黑名单 - IP: {}", clientIp);
+            }
+            return Mono.empty();
+        }
+
+        return rateLimitService.addToBlackList(clientIp, reason, rateLimitProperties.getBlackListDurationMinutes())
+                .doOnNext(success -> {
+                    if (success) {
+                        log.warn("IP已添加到黑名单 - IP: {}, 原因: {}, 有效期: {}分钟",
+                                clientIp, reason, rateLimitProperties.getBlackListDurationMinutes());
+                    } else {
+                        log.error("添加IP到黑名单失败 - IP: {}, 原因: {}", clientIp, reason);
+                    }
+                })
+                .onErrorResume(throwable -> {
+                    log.error("添加IP到黑名单异常 - IP: {}, 原因: {}, 错误: {}",
+                            clientIp, reason, throwable.getMessage());
+                    return Mono.just(false); // 异常时不影响主流程
+                })
+                .then();
     }
 
     @Override
