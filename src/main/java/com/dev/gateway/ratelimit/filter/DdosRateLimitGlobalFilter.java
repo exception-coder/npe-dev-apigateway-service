@@ -1,13 +1,12 @@
 package com.dev.gateway.ratelimit.filter;
 
 import com.dev.gateway.access.context.AccessRecordContextKeys;
+import com.dev.gateway.common.constants.HttpHeaderConstants;
 import com.dev.gateway.configuration.GlobalFilterOrderConfig;
 import com.dev.gateway.ratelimit.properties.RateLimitProperties;
 import com.dev.gateway.ratelimit.service.RateLimitLogService;
 import com.dev.gateway.ratelimit.service.RateLimitService;
-import com.dev.gateway.utils.skywalking.LogContextUtil;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.skywalking.apm.toolkit.trace.Trace;
 import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.apache.skywalking.apm.toolkit.webflux.WebFluxSkyWalkingTraceContext;
 import org.slf4j.MDC;
@@ -26,8 +25,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 
-import java.net.URI;
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -111,7 +108,7 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         log.info("链路信息 - traceId: {}, spanId: {}", TraceContext.traceId(), TraceContext.spanId());
         WebFluxSkyWalkingTraceContext.putCorrelation(exchange, "traceId", TraceContext.traceId());
-        exchange.getResponse().getHeaders().set("x-trace-id", TraceContext.traceId());
+        exchange.getResponse().getHeaders().set(HttpHeaderConstants.X_TRACE_ID, TraceContext.traceId());
         // 必须在这个 deferContextual 中，才是 SkyWalking 可感知的 Reactor 上下文
         return Mono.deferContextual(ctx -> {
             log.info("WebFlux链路信息 - traceId: {}, spanId: {}",
@@ -343,9 +340,75 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
      */
     private Mono<Void> redirectToCaptcha(ServerWebExchange exchange) {
         ServerHttpResponse response = exchange.getResponse();
-        response.setStatusCode(HttpStatus.FOUND);
-        response.getHeaders().setLocation(URI.create(rateLimitProperties.getCaptchaPagePath()));
+        response.setStatusCode(HttpStatus.FORBIDDEN);
+
+        String redirectUrl = buildCaptchaRedirectUrl(exchange);
+        response.getHeaders().set(HttpHeaderConstants.REDIRECT_URL, redirectUrl);
+
+        if (rateLimitProperties.isVerboseLogging()) {
+            log.info("重定向到验证码页面: {}", redirectUrl);
+        }
+
         return response.setComplete().doFinally(onFinally);
+    }
+
+    /**
+     * 构建验证码页面的完整重定向URL
+     */
+    private String buildCaptchaRedirectUrl(ServerWebExchange exchange) {
+        String captchaPath = rateLimitProperties.getCaptchaPagePath();
+
+        // 如果已经是完整URL，直接返回
+        if (isAbsoluteUrl(captchaPath)) {
+            return captchaPath;
+        }
+
+        // 如果配置了baseUrl，使用baseUrl拼接
+        String baseUrl = rateLimitProperties.getBaseUrl();
+        if (baseUrl != null && !baseUrl.trim().isEmpty()) {
+            // 确保baseUrl不以/结尾，captchaPath以/开头
+            baseUrl = baseUrl.replaceAll("/$", "");
+            captchaPath = captchaPath.startsWith("/") ? captchaPath : "/" + captchaPath;
+            return baseUrl + captchaPath;
+        }
+
+        // 基于当前请求动态构建完整URL
+        return buildUrlFromCurrentRequest(exchange, captchaPath);
+    }
+
+    /**
+     * 判断是否为绝对URL
+     */
+    private boolean isAbsoluteUrl(String url) {
+        return url != null && (url.startsWith("http://") || url.startsWith("https://"));
+    }
+
+    /**
+     * 基于当前请求构建完整URL
+     */
+    private String buildUrlFromCurrentRequest(ServerWebExchange exchange, String path) {
+        ServerHttpRequest request = exchange.getRequest();
+        String scheme = request.getURI().getScheme();
+        String host = request.getURI().getHost();
+        int port = request.getURI().getPort();
+
+        StringBuilder urlBuilder = new StringBuilder();
+        urlBuilder.append(scheme).append("://").append(host);
+
+        // 只有在非标准端口时才添加端口号
+        if (port != -1 &&
+                !("http".equals(scheme) && port == 80) &&
+                !("https".equals(scheme) && port == 443)) {
+            urlBuilder.append(":").append(port);
+        }
+
+        // 确保path以/开头
+        if (!path.startsWith("/")) {
+            urlBuilder.append("/");
+        }
+        urlBuilder.append(path);
+
+        return urlBuilder.toString();
     }
 
     /**
@@ -355,15 +418,15 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
         HttpHeaders headers = response.getHeaders();
 
         // 防止XSS攻击
-        headers.add("X-XSS-Protection", "1; mode=block");
+        headers.add(HttpHeaderConstants.X_XSS_PROTECTION, "1; mode=block");
         // 防止点击劫持
-        headers.add("X-Frame-Options", "SAMEORIGIN");
+        headers.add(HttpHeaderConstants.X_FRAME_OPTIONS, "SAMEORIGIN");
         // 防止MIME类型嗅探
-        headers.add("X-Content-Type-Options", "nosniff");
+        headers.add(HttpHeaderConstants.X_CONTENT_TYPE_OPTIONS, "nosniff");
         // 控制Referer头
-        headers.add("Referrer-Policy", "no-referrer");
+        headers.add(HttpHeaderConstants.REFERRER_POLICY, "no-referrer");
         // 内容安全策略
-        headers.add("Content-Security-Policy",
+        headers.add(HttpHeaderConstants.CONTENT_SECURITY_POLICY,
                 "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-src 'self';");
     }
 

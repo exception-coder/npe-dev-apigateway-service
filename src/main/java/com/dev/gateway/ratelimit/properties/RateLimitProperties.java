@@ -74,6 +74,16 @@ public class RateLimitProperties {
 
     /**
      * 验证码页面路径
+     * 支持以下格式：
+     * 1. 完整URL：http://example.com/captcha.html 或 https://example.com/captcha.html
+     * 2. 相对路径：/static/captcha.html（将基于baseUrl或当前请求构建完整URL）
      */
     private String captchaPagePath = "/static/captcha.html";
-} 
+
+    /**
+     * 网关基础URL（可选）
+     * 当captchaPagePath为相对路径时，会与此baseUrl拼接
+     * 例如：https://api.example.com
+     */
+    private String baseUrl;
+}

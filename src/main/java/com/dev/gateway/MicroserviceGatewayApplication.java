@@ -25,6 +25,7 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.util.ObjectUtils;
 import reactor.core.publisher.Mono;
 
 import java.io.ByteArrayInputStream;
@@ -118,46 +119,48 @@ public class MicroserviceGatewayApplication {
                                             String content;
                                             log.info("系统默认编码:{}", System.getProperty("file.encoding"));
 
-                                            try {
-                                                // 检查是否是gzip压缩数据
-                                                if (body.length > 2 && (body[0] & 0xFF) == 0x1F
-                                                        && (body[1] & 0xFF) == 0x8B) {
-                                                    log.info("检测到gzip压缩数据，进行解压");
-                                                    try (GZIPInputStream gzipInputStream = new GZIPInputStream(
-                                                            new ByteArrayInputStream(body))) {
-                                                        byte[] decompressed = gzipInputStream.readAllBytes();
-                                                        content = new String(decompressed, StandardCharsets.UTF_8);
-                                                        log.info("gzip解压后的内容: {}", content);
-                                                    }
-                                                } else {
-                                                    // 如果不是gzip，使用正常的解码方式
-                                                    if (contentType != null && contentType.getCharset() != null) {
-                                                        content = new String(body, contentType.getCharset());
-                                                        log.info("使用Content-Type中指定的编码: {}", contentType.getCharset());
+                                            if(!ObjectUtils.isEmpty(body)){
+                                                try {
+                                                    // 检查是否是gzip压缩数据
+                                                    if (body.length > 2
+                                                            && (body[0] & 0xFF) == 0x1F
+                                                            && (body[1] & 0xFF) == 0x8B) {
+                                                        log.info("检测到gzip压缩数据，进行解压");
+                                                        try (GZIPInputStream gzipInputStream = new GZIPInputStream(
+                                                                new ByteArrayInputStream(body))) {
+                                                            byte[] decompressed = gzipInputStream.readAllBytes();
+                                                            content = new String(decompressed, StandardCharsets.UTF_8);
+                                                            log.info("gzip解压后的内容: {}", content);
+                                                        }
                                                     } else {
-                                                        content = new String(body, StandardCharsets.UTF_8);
-                                                        log.info("使用默认UTF-8编码");
+                                                        // 如果不是gzip，使用正常的解码方式
+                                                        if (contentType != null && contentType.getCharset() != null) {
+                                                            content = new String(body, contentType.getCharset());
+                                                            log.info("使用Content-Type中指定的编码: {}", contentType.getCharset());
+                                                        } else {
+                                                            content = new String(body, StandardCharsets.UTF_8);
+                                                            log.info("使用默认UTF-8编码");
+                                                        }
                                                     }
-                                                }
 
-                                                // 对于较小的响应体，打印详细调试信息
-                                                if (body.length <= 1024) {
-                                                    StringBuilder hexString = new StringBuilder();
-                                                    for (byte b : body) {
-                                                        hexString.append(String.format("%02X ", b));
+                                                    // 对于较小的响应体，打印详细调试信息
+                                                    if (body.length <= 1024) {
+                                                        StringBuilder hexString = new StringBuilder();
+                                                        for (byte b : body) {
+                                                            hexString.append(String.format("%02X ", b));
+                                                        }
+                                                        log.debug("响应体原始字节(HEX): {}", hexString.toString());
                                                     }
-                                                    log.debug("响应体原始字节(HEX): {}", hexString.toString());
-                                                }
 
-                                            } catch (Exception e) {
-                                                log.error("响应体解码失败", e);
-                                                content = new String(body, StandardCharsets.ISO_8859_1);
+                                                } catch (Exception e) {
+                                                    log.error("响应体解码失败", e);
+                                                    content = new String(body, StandardCharsets.ISO_8859_1);
+                                                }
+                                                log.info("响应内容: {}", content);
+                                                // 返回清理后的字节数组
+                                                exchange.getAttributes().put(AccessRecordContextKeys.RESPONSE_BODY,
+                                                        content);
                                             }
-
-                                            log.info("响应内容: {}", content);
-                                            // 返回清理后的字节数组
-                                            exchange.getAttributes().put(AccessRecordContextKeys.RESPONSE_BODY,
-                                                    content);
                                             accessRecordService.updateAccessRecordOnComplete(exchange);
                                             return body;
                                         })))

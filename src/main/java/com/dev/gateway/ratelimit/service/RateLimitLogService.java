@@ -6,6 +6,7 @@ import com.dev.gateway.ratelimit.repository.RateLimitLogRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -116,7 +117,7 @@ public class RateLimitLogService {
                     .activeIpCount(activeIpCount)
                     .limitThreshold(threshold)
                     .triggerTime(LocalDateTime.now())
-                    .responseStatus(302) // Redirect to captcha
+                    .responseStatus(HttpStatus.FORBIDDEN.value()) // Redirect to captcha
                     .inWhiteList((Boolean) exchange.getAttributes().get(AccessRecordContextKeys.WHITELIST_FLATMAP))
                     .isDdosAttack(true)
                     .createTime(LocalDateTime.now())

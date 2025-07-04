@@ -77,4 +77,5 @@ gateway:
 
     # 其他配置
     verbose-logging: true            # 是否启用详细日志
+    base-url: "http://localhost:9099"  # 网关基础URL
     captcha-page-path: "/static/captcha.html"  # 验证码页面路径
