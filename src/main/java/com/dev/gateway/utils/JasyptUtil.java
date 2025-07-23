@@ -107,10 +107,10 @@ public class JasyptUtil {
 
         // 需要加密的敏感信息
         String[] secrets = {
-                "mongoP%40ssw0Rd2024", // MongoDB 密码
-                "redisP@ssw0Rd2023", // Redis 密码
-                "gatewayP@ssw0rd", // SSL keystore 密码
-                "nacosP@ssw0Rd", // Nacos 密码
+                "mongo", // MongoDB 密码
+                "redis", // Redis 密码
+                "gateway", // SSL keystore 密码
+                "nacos", // Nacos 密码
         };
 
         System.out.println("=== 配置加密结果 ===");
