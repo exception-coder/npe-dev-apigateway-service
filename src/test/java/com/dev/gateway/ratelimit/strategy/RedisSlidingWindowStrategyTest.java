@@ -1,5 +1,6 @@
 package com.dev.gateway.ratelimit.strategy;
 
+import com.dev.gateway.filter.ratelimit.strategy.RedisSlidingWindowStrategy;
 import com.dev.gateway.properties.GatewayProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;

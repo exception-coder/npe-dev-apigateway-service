@@ -2,7 +2,6 @@ package com.dev.gateway.filter;
 
 import com.dev.gateway.configuration.GlobalFilterOrderConfig;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.skywalking.apm.toolkit.trace.Trace;
 import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;

@@ -1,10 +1,10 @@
 package com.dev.gateway;
 
-import com.dev.gateway.access.context.AccessRecordContextKeys;
-import com.dev.gateway.access.service.AccessRecordService;
+import com.dev.gateway.filter.access.context.AccessRecordContextKeys;
+import com.dev.gateway.filter.access.service.AccessRecordService;
 import com.dev.gateway.filter.XssResponseFilter;
 import com.dev.gateway.framework.error.GlobalErrorAttributes;
-import com.dev.gateway.logging.filter.ResponseLoggerGatewayFilterFactory;
+import com.dev.gateway.filter.logging.filter.ResponseLoggerGatewayFilterFactory;
 import com.dev.gateway.properties.GatewayProperties;
 import com.dev.gateway.properties.RouteProperties;
 import lombok.extern.slf4j.Slf4j;

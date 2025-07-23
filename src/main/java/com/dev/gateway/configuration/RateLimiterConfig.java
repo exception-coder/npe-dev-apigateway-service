@@ -1,8 +1,8 @@
 package com.dev.gateway.configuration;
 
 import com.dev.gateway.properties.GatewayProperties;
-import com.dev.gateway.ratelimit.factory.SlidingWindowStrategyFactory;
-import com.dev.gateway.ratelimit.strategy.SlidingWindowStrategy;
+import com.dev.gateway.filter.ratelimit.factory.SlidingWindowStrategyFactory;
+import com.dev.gateway.filter.ratelimit.strategy.SlidingWindowStrategy;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
