@@ -1,18 +1,15 @@
 package com.dev.gateway.controller;
 
-import cn.hutool.core.io.FileUtil;
 import com.alibaba.fastjson.JSONObject;
-import com.dev.gateway.service.redis.ExpiringValueService;
 import com.dev.gateway.ratelimit.service.RateLimitService;
+import com.dev.gateway.service.IpResolverService;
+import com.dev.gateway.service.redis.ExpiringValueService;
 import com.dev.gateway.utils.skywalking.LogContextUtil;
 import com.google.code.kaptcha.Producer;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cloud.gateway.support.ipresolver.XForwardedRemoteAddressResolver;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
@@ -39,27 +36,23 @@ public class CaptchaController {
 
     private final Producer captchaProducer;
 
-    private final ExpiringValueService ipSetLast10Seconds;
-
-    private final ExpiringValueService ipWithCaptcha1Minutes;
-
-    private final ExpiringValueService whiteList5minutes;
-
     private final RateLimitService rateLimitService;
 
-    private final XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver;
+    private final IpResolverService ipResolverService;
 
     public CaptchaController(Producer captchaProducer,
-            @Qualifier("ipSetLast10Seconds") ExpiringValueService ipSetLast10Seconds,
-            @Qualifier("ipWithCaptcha1Minutes") ExpiringValueService ipWithCaptcha1Minutes,
-            @Qualifier("whiteList5minutes") ExpiringValueService whiteList5minutes, RateLimitService rateLimitService,
-            XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver) {
+                             RateLimitService rateLimitService,
+            IpResolverService ipResolverService) {
         this.captchaProducer = captchaProducer;
-        this.ipSetLast10Seconds = ipSetLast10Seconds;
-        this.ipWithCaptcha1Minutes = ipWithCaptcha1Minutes;
-        this.whiteList5minutes = whiteList5minutes;
         this.rateLimitService = rateLimitService;
-        this.xForwardedRemoteAddressResolver = xForwardedRemoteAddressResolver;
+        this.ipResolverService = ipResolverService;
+    }
+
+    /**
+     * 获取客户端IP地址
+     */
+    private String getClientIp(ServerWebExchange exchange) {
+        return ipResolverService.getClientIp(exchange);
     }
 
     @GetMapping("/captcha-info")
@@ -111,7 +104,7 @@ public class CaptchaController {
     public Mono<Void> validateCaptcha(ServerWebExchange exchange) {
         exchange.getAttributes().put("flatMap", false);
         return exchange.getFormData().flatMap(formData -> {
-            String clientIp = xForwardedRemoteAddressResolver.resolve(exchange).getAddress().getHostAddress();
+            String clientIp = getClientIp(exchange);
             String captcha = formData.getFirst("captcha");
             log.info("ip:{},验证码:{}", clientIp, captcha);
 
@@ -162,7 +155,7 @@ public class CaptchaController {
         response.getHeaders().setContentType(MediaType.IMAGE_JPEG);
         // 生成验证码文本
         String captchaText = captchaProducer.createText();
-        String clientIp = xForwardedRemoteAddressResolver.resolve(exchange).getAddress().getHostAddress();
+        String clientIp = getClientIp(exchange);
         LogContextUtil.initSkywalkingTraceContext();
         return rateLimitService.setIpWithCaptcha1Minutes(clientIp, captchaText)
                 .flatMap(success -> writeCaptchaImage(captchaText, response))

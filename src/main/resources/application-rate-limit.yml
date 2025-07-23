@@ -75,6 +75,7 @@ gateway:
     # 跳过限流检查的路径
     skip-paths:
       - "/static/captcha.html"
+      - "/validate-captcha"
       - "/api/rate-limit/**"
       - "/actuator/**"
       - "/favicon.ico"

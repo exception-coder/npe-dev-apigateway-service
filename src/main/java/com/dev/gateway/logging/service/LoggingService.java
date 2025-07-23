@@ -1,6 +1,7 @@
 package com.dev.gateway.logging.service;
 
 import com.dev.gateway.logging.properties.LoggingProperties;
+import com.dev.gateway.service.IpResolverService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,9 @@ public class LoggingService {
 
     @Autowired
     private LoggingProperties loggingProperties;
+
+    @Autowired
+    private IpResolverService ipResolverService;
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
@@ -57,7 +61,7 @@ public class LoggingService {
         logBuilder.append("时间: ").append(LocalDateTime.now().format(FORMATTER)).append("\n");
         logBuilder.append("方法: ").append(request.getMethod()).append("\n");
         logBuilder.append("URI: ").append(request.getURI()).append("\n");
-        logBuilder.append("远程地址: ").append(getClientIp(request)).append("\n");
+        logBuilder.append("远程地址: ").append(ipResolverService.getClientIp(request)).append("\n");
 
         // 记录请求头
         if (loggingProperties.isLogHeaders()) {
@@ -147,36 +151,16 @@ public class LoggingService {
             return;
         }
 
-        String clientIp = getClientIp(request);
+        String clientIp = ipResolverService.getClientIp(request);
         String method = request.getMethod().toString();
         String uri = request.getURI().toString();
         String userAgent = request.getHeaders().getFirst(HttpHeaders.USER_AGENT);
-        Integer statusCode = exchange.getResponse().getStatusCode() != null ? 
-                exchange.getResponse().getStatusCode().value() : 0;
+        Integer statusCode = exchange.getResponse().getStatusCode() != null
+                ? exchange.getResponse().getStatusCode().value()
+                : 0;
 
-        log.info("ACCESS - {} {} {} - {} - {}ms - Agent: {}", 
+        log.info("ACCESS - {} {} {} - {} - {}ms - Agent: {}",
                 clientIp, method, uri, statusCode, duration, userAgent);
-    }
-
-    /**
-     * 获取客户端IP
-     */
-    private String getClientIp(ServerHttpRequest request) {
-        String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-        if (StringUtils.hasText(xForwardedFor)) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-        if (StringUtils.hasText(xRealIp)) {
-            return xRealIp;
-        }
-
-        if (request.getRemoteAddress() != null) {
-            return request.getRemoteAddress().getAddress().getHostAddress();
-        }
-
-        return "unknown";
     }
 
     /**
@@ -237,16 +221,36 @@ public class LoggingService {
         private boolean verboseLogging;
 
         // getters and setters
-        public boolean isAccessLogEnabled() { return accessLogEnabled; }
-        public void setAccessLogEnabled(boolean accessLogEnabled) { this.accessLogEnabled = accessLogEnabled; }
+        public boolean isAccessLogEnabled() {
+            return accessLogEnabled;
+        }
 
-        public boolean isRequestBodyEnabled() { return requestBodyEnabled; }
-        public void setRequestBodyEnabled(boolean requestBodyEnabled) { this.requestBodyEnabled = requestBodyEnabled; }
+        public void setAccessLogEnabled(boolean accessLogEnabled) {
+            this.accessLogEnabled = accessLogEnabled;
+        }
 
-        public boolean isResponseBodyEnabled() { return responseBodyEnabled; }
-        public void setResponseBodyEnabled(boolean responseBodyEnabled) { this.responseBodyEnabled = responseBodyEnabled; }
+        public boolean isRequestBodyEnabled() {
+            return requestBodyEnabled;
+        }
 
-        public boolean isVerboseLogging() { return verboseLogging; }
-        public void setVerboseLogging(boolean verboseLogging) { this.verboseLogging = verboseLogging; }
+        public void setRequestBodyEnabled(boolean requestBodyEnabled) {
+            this.requestBodyEnabled = requestBodyEnabled;
+        }
+
+        public boolean isResponseBodyEnabled() {
+            return responseBodyEnabled;
+        }
+
+        public void setResponseBodyEnabled(boolean responseBodyEnabled) {
+            this.responseBodyEnabled = responseBodyEnabled;
+        }
+
+        public boolean isVerboseLogging() {
+            return verboseLogging;
+        }
+
+        public void setVerboseLogging(boolean verboseLogging) {
+            this.verboseLogging = verboseLogging;
+        }
     }
-} 
+}

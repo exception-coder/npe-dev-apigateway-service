@@ -7,6 +7,9 @@ server:
     key-store-type: PKCS12
     key-alias: mygateway
 
+# 网络配置 - 强制使用IPv4
+network:
+  prefer-ipv4: true
 
 spring:
   main:

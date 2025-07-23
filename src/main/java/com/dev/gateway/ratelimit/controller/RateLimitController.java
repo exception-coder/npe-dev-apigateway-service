@@ -1,6 +1,7 @@
 package com.dev.gateway.ratelimit.controller;
 
 import com.dev.gateway.ratelimit.service.RateLimitService;
+import com.dev.gateway.service.IpResolverService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,12 +23,14 @@ import java.util.Map;
 @Slf4j
 public class RateLimitController {
 
-    @Autowired
-    private RateLimitService rateLimitService;
+    private final RateLimitService rateLimitService;
 
-    @Autowired
-    @Qualifier("rateLimitIpResolver")
-    private XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver;
+    private final IpResolverService ipResolverService;
+
+    public RateLimitController(RateLimitService rateLimitService, IpResolverService ipResolverService) {
+        this.rateLimitService = rateLimitService;
+        this.ipResolverService = ipResolverService;
+    }
 
     /**
      * 验证码验证接口
@@ -219,12 +222,7 @@ public class RateLimitController {
      * 获取客户端IP地址
      */
     private String getClientIp(ServerWebExchange exchange) {
-        String mockIp = exchange.getRequest().getHeaders().getFirst("Mock-IP");
-        if (mockIp != null && !mockIp.isEmpty()) {
-            return mockIp;
-        }
-
-        return xForwardedRemoteAddressResolver.resolve(exchange).getAddress().getHostAddress();
+        return ipResolverService.getClientIp(exchange);
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.dev.gateway.filter;
 
 import com.dev.gateway.config.SecurityFilterConfig;
+import com.dev.gateway.service.IpResolverService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -49,8 +50,11 @@ public class XssResponseFilter implements GatewayFilter {
 
     private final SecurityFilterConfig config;
 
-    public XssResponseFilter(SecurityFilterConfig config) {
+    private final IpResolverService ipResolverService;
+
+    public XssResponseFilter(SecurityFilterConfig config, IpResolverService ipResolverService) {
         this.config = config;
+        this.ipResolverService = ipResolverService;
     }
 
     @Override

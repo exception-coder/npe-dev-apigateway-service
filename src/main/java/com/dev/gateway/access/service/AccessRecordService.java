@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.dev.gateway.access.context.AccessRecordContextKeys;
 import com.dev.gateway.access.model.AccessRecord;
 import com.dev.gateway.access.repository.AccessRecordRepository;
+import com.dev.gateway.service.IpResolverService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.springframework.data.domain.PageRequest;
@@ -30,9 +31,11 @@ import java.util.UUID;
 public class AccessRecordService {
 
     private final AccessRecordRepository accessRecordRepository;
+    private final IpResolverService ipResolverService;
 
-    public AccessRecordService(AccessRecordRepository accessRecordRepository) {
+    public AccessRecordService(AccessRecordRepository accessRecordRepository, IpResolverService ipResolverService) {
         this.accessRecordRepository = accessRecordRepository;
+        this.ipResolverService = ipResolverService;
     }
 
     /**
@@ -43,7 +46,7 @@ public class AccessRecordService {
 
         AccessRecord.AccessRecordBuilder builder = AccessRecord.builder()
                 .id(recordId)
-                .clientIp(getClientIp(exchange))
+                .clientIp(ipResolverService.getClientIp(exchange))
                 .requestPath(request.getURI().getPath())
                 .httpMethod(request.getMethod().name())
                 .userAgent(request.getHeaders().getFirst(HttpHeaders.USER_AGENT))
@@ -59,7 +62,6 @@ public class AccessRecordService {
 
         return builder.build();
     }
-
 
     public void updateAccessRecordOnComplete(ServerWebExchange exchange) {
         long startTime = (long) exchange.getAttributes().get(AccessRecordContextKeys.REQUEST_START_TIME);
@@ -180,7 +182,7 @@ public class AccessRecordService {
      * @return 访问记录流
      */
     public Flux<AccessRecord> getAccessRecordsByTimeRange(LocalDateTime startTime, LocalDateTime endTime,
-                                                          int page, int size) {
+            int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return accessRecordRepository.findByAccessTimeBetweenOrderByAccessTimeDesc(startTime, endTime, pageable)
                 .doOnError(error -> log.error("查询时间范围访问记录失败 - 错误: {}", error.getMessage()));
@@ -235,13 +237,13 @@ public class AccessRecordService {
      */
     public Mono<AccessStatistics> getAccessStatistics(LocalDateTime startTime, LocalDateTime endTime) {
         return Mono.zip(
-                        // 总访问次数
-                        accessRecordRepository.countByAccessTimeBetween(startTime, endTime).onErrorReturn(0L),
-                        // 被限流的访问次数
-                        countRateLimitedAccess(startTime, endTime),
-                        // 活跃IP数量
-                        accessRecordRepository.countDistinctClientIpByAccessTimeBetween(startTime, endTime).onErrorReturn(0L)
-                ).map(tuple -> AccessStatistics.builder()
+                // 总访问次数
+                accessRecordRepository.countByAccessTimeBetween(startTime, endTime).onErrorReturn(0L),
+                // 被限流的访问次数
+                countRateLimitedAccess(startTime, endTime),
+                // 活跃IP数量
+                accessRecordRepository.countDistinctClientIpByAccessTimeBetween(startTime, endTime).onErrorReturn(0L))
+                .map(tuple -> AccessStatistics.builder()
                         .totalAccess(tuple.getT1())
                         .rateLimitedAccess(tuple.getT2())
                         .uniqueIpCount(tuple.getT3())
@@ -281,7 +283,6 @@ public class AccessRecordService {
                 .inWhiteList(false);
     }
 
-
     /**
      * 使用SkyWalking API获取当前的traceId
      */
@@ -319,28 +320,6 @@ public class AccessRecordService {
     /**
      * 获取客户端IP地址
      */
-    private String getClientIp(ServerWebExchange exchange) {
-        ServerHttpRequest request = exchange.getRequest();
-
-        // 尝试从X-Forwarded-For头获取
-        String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        // 尝试从X-Real-IP头获取
-        String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-
-        // 从远程地址获取
-        if (request.getRemoteAddress() != null) {
-            return request.getRemoteAddress().getAddress().getHostAddress();
-        }
-
-        return "unknown";
-    }
 
     /**
      * 将请求头转换为JSON字符串
@@ -361,7 +340,6 @@ public class AccessRecordService {
             return "{}";
         }
     }
-
 
     /**
      * 访问统计信息数据类
@@ -406,6 +384,5 @@ public class AccessRecordService {
             return (double) rateLimitedAccess / totalAccess * 100;
         }
     }
-
 
 }

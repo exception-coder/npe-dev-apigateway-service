@@ -6,21 +6,19 @@ import com.dev.gateway.configuration.GlobalFilterOrderConfig;
 import com.dev.gateway.ratelimit.properties.RateLimitProperties;
 import com.dev.gateway.ratelimit.service.RateLimitLogService;
 import com.dev.gateway.ratelimit.service.RateLimitService;
+import com.dev.gateway.service.IpResolverService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.apache.skywalking.apm.toolkit.webflux.WebFluxSkyWalkingTraceContext;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
-import org.springframework.cloud.gateway.support.ipresolver.XForwardedRemoteAddressResolver;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ObjectUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
@@ -45,7 +43,7 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
 
     private final RateLimitProperties rateLimitProperties;
 
-    private final XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver;
+    private final IpResolverService ipResolverService;
 
     private final RateLimitLogService rateLimitLogService;
 
@@ -55,11 +53,10 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
     });
 
     public DdosRateLimitGlobalFilter(RateLimitService rateLimitService, RateLimitProperties rateLimitProperties,
-            @Qualifier("rateLimitIpResolver") XForwardedRemoteAddressResolver xForwardedRemoteAddressResolver,
-            RateLimitLogService rateLimitLogService) {
+            IpResolverService ipResolverService, RateLimitLogService rateLimitLogService) {
         this.rateLimitService = rateLimitService;
         this.rateLimitProperties = rateLimitProperties;
-        this.xForwardedRemoteAddressResolver = xForwardedRemoteAddressResolver;
+        this.ipResolverService = ipResolverService;
         this.rateLimitLogService = rateLimitLogService;
     }
 
@@ -103,7 +100,6 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
         }
     }
 
-    // @Trace(operationName = "DdosRateLimitGlobalFilter")
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         log.info("链路信息 - traceId: {}, spanId: {}", TraceContext.traceId(), TraceContext.spanId());
@@ -124,7 +120,7 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
             ServerHttpResponse response = exchange.getResponse();
 
             // 获取客户端IP和请求URI
-            String clientIp = getClientIp(exchange);
+            String clientIp = ipResolverService.getClientIp(exchange);
             String requestUri = request.getURI().getPath();
 
             // 设置MDC日志上下文
@@ -377,15 +373,6 @@ public class DdosRateLimitGlobalFilter implements GlobalFilter, Ordered {
                                 }
                             });
                 });
-    }
-
-    /**
-     * 获取客户端IP地址
-     */
-    private String getClientIp(ServerWebExchange exchange) {
-        // 从X-Forwarded-For等头获取真实IP
-        String realIp = xForwardedRemoteAddressResolver.resolve(exchange).getAddress().getHostAddress();
-        return ObjectUtils.isEmpty(realIp) ? "127.0.0.1" : realIp;
     }
 
     /**
