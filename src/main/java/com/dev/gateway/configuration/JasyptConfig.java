@@ -1,4 +1,4 @@
-package com.dev.gateway.config;
+package com.dev.gateway.configuration;
 
 import org.jasypt.encryption.StringEncryptor;
 import org.jasypt.encryption.pbe.PooledPBEStringEncryptor;

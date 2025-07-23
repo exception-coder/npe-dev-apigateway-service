@@ -1,4 +1,4 @@
-package com.dev.gateway.config;
+package com.dev.gateway.configuration;
 
 import com.dev.gateway.properties.GatewayProperties;
 import lombok.extern.slf4j.Slf4j;

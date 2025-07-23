@@ -1,6 +1,6 @@
 package com.dev.gateway.filter;
 
-import com.dev.gateway.config.SecurityFilterConfig;
+import com.dev.gateway.configuration.SecurityFilterConfig;
 import com.dev.gateway.service.IpResolverService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

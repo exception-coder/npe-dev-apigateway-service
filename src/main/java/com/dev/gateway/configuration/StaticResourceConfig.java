@@ -1,4 +1,4 @@
-package com.dev.gateway.config;
+package com.dev.gateway.configuration;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;

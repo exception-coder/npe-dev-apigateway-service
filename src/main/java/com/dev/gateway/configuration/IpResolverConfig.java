@@ -1,4 +1,4 @@
-package com.dev.gateway.config;
+package com.dev.gateway.configuration;
 
 import com.dev.gateway.service.IpResolverService;
 import com.dev.gateway.utils.IpUtil;
