@@ -1,8 +1,9 @@
 package com.dev.gateway.filter.logging.filter;
 
-import com.dev.gateway.configuration.GlobalFilterOrderConfig;
+import com.dev.gateway.filter.GlobalFilterOrderConfig;
 import com.dev.gateway.filter.logging.properties.LoggingProperties;
 import com.dev.gateway.filter.logging.service.LoggingService;
+import com.dev.gateway.service.IpResolverService;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -35,15 +36,19 @@ public class RequestLoggerGlobalFilter implements GlobalFilter, Ordered {
 
     private final LoggingService loggingService;
 
+    private final IpResolverService ipResolverService;
+
     private final Consumer<SignalType> onFinally = Objects.requireNonNull(signalType -> {
         MDC.remove("requestId");
         MDC.remove("clientIp");
         MDC.remove("requestPath");
     });
 
-    public RequestLoggerGlobalFilter(LoggingProperties loggingProperties, LoggingService loggingService) {
+    public RequestLoggerGlobalFilter(LoggingProperties loggingProperties, LoggingService loggingService,
+            IpResolverService ipResolverService) {
         this.loggingProperties = loggingProperties;
         this.loggingService = loggingService;
+        this.ipResolverService = ipResolverService;
     }
 
     @Override
@@ -63,7 +68,7 @@ public class RequestLoggerGlobalFilter implements GlobalFilter, Ordered {
 
         // 设置MDC上下文
         String requestId = java.util.UUID.randomUUID().toString().substring(0, 8);
-        String clientIp = getClientIp(request);
+        String clientIp = ipResolverService.getClientIp(exchange);
         MDC.put("requestId", requestId);
         MDC.put("clientIp", clientIp);
         MDC.put("requestPath", requestUri);
@@ -81,16 +86,16 @@ public class RequestLoggerGlobalFilter implements GlobalFilter, Ordered {
      */
     private Mono<Void> processRequestBody(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
-        
+
         return DataBufferUtils.join(request.getBody())
                 .cast(DataBuffer.class)
                 .map(dataBuffer -> {
                     String requestBody = dataBuffer.toString(StandardCharsets.UTF_8);
                     DataBufferUtils.release(dataBuffer);
-                    
+
                     // 记录请求日志
                     loggingService.logRequest(exchange, requestBody);
-                    
+
                     // 创建新的请求体
                     return requestBody;
                 })
@@ -101,13 +106,14 @@ public class RequestLoggerGlobalFilter implements GlobalFilter, Ordered {
                         @Override
                         public Flux<DataBuffer> getBody() {
                             if (StringUtils.hasText(requestBody)) {
-                                DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(requestBody.getBytes(StandardCharsets.UTF_8));
+                                DataBuffer buffer = exchange.getResponse().bufferFactory()
+                                        .wrap(requestBody.getBytes(StandardCharsets.UTF_8));
                                 return Flux.just(buffer);
                             }
                             return Flux.empty();
                         }
                     };
-                    
+
                     return chain.filter(exchange.mutate().request(decorator).build());
                 })
                 .doFinally(onFinally);
@@ -125,26 +131,9 @@ public class RequestLoggerGlobalFilter implements GlobalFilter, Ordered {
     /**
      * 获取客户端IP
      */
-    private String getClientIp(ServerHttpRequest request) {
-        String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-        if (StringUtils.hasText(xForwardedFor)) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-        if (StringUtils.hasText(xRealIp)) {
-            return xRealIp;
-        }
-
-        if (request.getRemoteAddress() != null) {
-            return request.getRemoteAddress().getAddress().getHostAddress();
-        }
-
-        return "unknown";
-    }
 
     @Override
     public int getOrder() {
         return GlobalFilterOrderConfig.REQUEST_LOGGER_FILTER_ORDER; // 使用统一的全局过滤器顺序管理
     }
-} 
+}

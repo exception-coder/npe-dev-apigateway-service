@@ -1,7 +1,7 @@
 package com.dev.gateway.filter.ratelimit.filter;
 
 import com.dev.gateway.filter.access.context.AccessRecordContextKeys;
-import com.dev.gateway.configuration.GlobalFilterOrderConfig;
+import com.dev.gateway.filter.GlobalFilterOrderConfig;
 import com.dev.gateway.configuration.RateLimiterConfig;
 import com.dev.gateway.properties.GatewayProperties;
 import com.dev.gateway.filter.ratelimit.service.RateLimitLogService;

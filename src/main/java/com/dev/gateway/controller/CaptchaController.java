@@ -39,18 +39,11 @@ public class CaptchaController {
     private final IpResolverService ipResolverService;
 
     public CaptchaController(Producer captchaProducer,
-                             RateLimitService rateLimitService,
+            RateLimitService rateLimitService,
             IpResolverService ipResolverService) {
         this.captchaProducer = captchaProducer;
         this.rateLimitService = rateLimitService;
         this.ipResolverService = ipResolverService;
-    }
-
-    /**
-     * 获取客户端IP地址
-     */
-    private String getClientIp(ServerWebExchange exchange) {
-        return ipResolverService.getClientIp(exchange);
     }
 
     @GetMapping("/captcha-info")
@@ -102,7 +95,7 @@ public class CaptchaController {
     public Mono<Void> validateCaptcha(ServerWebExchange exchange) {
         exchange.getAttributes().put("flatMap", false);
         return exchange.getFormData().flatMap(formData -> {
-            String clientIp = getClientIp(exchange);
+            String clientIp = ipResolverService.getClientIp(exchange);
             String captcha = formData.getFirst("captcha");
             log.info("ip:{},验证码:{}", clientIp, captcha);
 
@@ -153,7 +146,7 @@ public class CaptchaController {
         response.getHeaders().setContentType(MediaType.IMAGE_JPEG);
         // 生成验证码文本
         String captchaText = captchaProducer.createText();
-        String clientIp = getClientIp(exchange);
+        String clientIp = ipResolverService.getClientIp(exchange);
         LogContextUtil.initSkywalkingTraceContext();
         return rateLimitService.setIpWithCaptcha1Minutes(clientIp, captchaText)
                 .flatMap(success -> writeCaptchaImage(captchaText, response))

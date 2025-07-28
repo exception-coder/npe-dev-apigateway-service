@@ -3,7 +3,7 @@ package com.dev.gateway.filter.access.integration;
 import com.dev.gateway.filter.access.context.AccessRecordContextKeys;
 import com.dev.gateway.filter.access.model.AccessRecord;
 import com.dev.gateway.filter.access.service.AccessRecordService;
-import com.dev.gateway.configuration.GlobalFilterOrderConfig;
+import com.dev.gateway.filter.GlobalFilterOrderConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;

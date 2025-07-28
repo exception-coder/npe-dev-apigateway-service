@@ -3,6 +3,7 @@ package com.dev.gateway.configuration;
 import com.dev.gateway.properties.GatewayProperties;
 import com.dev.gateway.filter.ratelimit.factory.SlidingWindowStrategyFactory;
 import com.dev.gateway.filter.ratelimit.strategy.SlidingWindowStrategy;
+import com.dev.gateway.service.IpResolverService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
@@ -31,10 +32,13 @@ public class RateLimiterConfig {
 
     private final GatewayProperties gatewayProperties;
     private final SlidingWindowStrategyFactory strategyFactory;
+    private final IpResolverService ipResolverService;
 
-    public RateLimiterConfig(GatewayProperties gatewayProperties, SlidingWindowStrategyFactory strategyFactory) {
+    public RateLimiterConfig(GatewayProperties gatewayProperties, SlidingWindowStrategyFactory strategyFactory,
+            IpResolverService ipResolverService) {
         this.gatewayProperties = gatewayProperties;
         this.strategyFactory = strategyFactory;
+        this.ipResolverService = ipResolverService;
     }
 
     /**
@@ -89,37 +93,13 @@ public class RateLimiterConfig {
                     browserFingerprint = "unknown";
                 }
 
-                // 获取客户端IP，优先从代理头中获取
-                String clientIp = getClientIp(serverHttpRequest);
+                // 获取客户端IP，使用统一的IpResolverService
+                String clientIp = ipResolverService.getClientIp(exchange);
 
                 // 拼接浏览器指纹和客户端IP作为限流键
                 String rateLimitKey = browserFingerprint + ":" + clientIp;
 
                 return Mono.just(rateLimitKey);
-            }
-
-            // 获取客户端真实IP的方法
-            private String getClientIp(ServerHttpRequest request) {
-                // 优先从X-Forwarded-For头获取
-                String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-                if (!ObjectUtils.isEmpty(xForwardedFor)) {
-                    // X-Forwarded-For可能包含多个IP，取第一个
-                    return xForwardedFor.split(",")[0].trim();
-                }
-
-                // 从X-Real-IP头获取
-                String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-                if (!ObjectUtils.isEmpty(xRealIp)) {
-                    return xRealIp;
-                }
-
-                // 从RemoteAddress获取
-                if (request.getRemoteAddress() != null && request.getRemoteAddress().getAddress() != null) {
-                    return request.getRemoteAddress().getAddress().getHostAddress();
-                }
-
-                // 默认返回本地IP
-                return "127.0.0.1";
             }
         };
     }

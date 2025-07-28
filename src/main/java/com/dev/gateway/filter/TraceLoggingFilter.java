@@ -1,6 +1,6 @@
 package com.dev.gateway.filter;
 
-import com.dev.gateway.configuration.GlobalFilterOrderConfig;
+import com.dev.gateway.service.IpResolverService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.skywalking.apm.toolkit.trace.TraceContext;
 import org.slf4j.MDC;
@@ -16,10 +16,16 @@ import reactor.core.publisher.Mono;
 @Component
 public class TraceLoggingFilter implements GlobalFilter, Ordered {
 
+    private final IpResolverService ipResolverService;
+
+    public TraceLoggingFilter(IpResolverService ipResolverService) {
+        this.ipResolverService = ipResolverService;
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // 获取客户端IP和请求路径
-        String clientIp = getClientIp(exchange.getRequest());
+        String clientIp = ipResolverService.getClientIp(exchange);
         String uriPath = exchange.getRequest().getURI().getPath();
 
         return Mono.deferContextual(ctx -> {
@@ -79,27 +85,4 @@ public class TraceLoggingFilter implements GlobalFilter, Ordered {
         return GlobalFilterOrderConfig.TRACE_LOGGING_FILTER_ORDER; // 使用统一的全局过滤器顺序管理
     }
 
-    /**
-     * 获取客户端IP地址
-     */
-    private String getClientIp(ServerHttpRequest request) {
-        // 尝试从X-Forwarded-For头获取
-        String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-
-        // 尝试从X-Real-IP头获取
-        String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-
-        // 从远程地址获取
-        if (request.getRemoteAddress() != null) {
-            return request.getRemoteAddress().getAddress().getHostAddress();
-        }
-
-        return "unknown";
-    }
 }

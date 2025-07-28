@@ -1,6 +1,6 @@
 package com.dev.gateway.filter.logging.filter;
 
-import com.dev.gateway.configuration.GlobalFilterOrderConfig;
+import com.dev.gateway.filter.GlobalFilterOrderConfig;
 import com.dev.gateway.filter.logging.properties.LoggingProperties;
 import com.dev.gateway.filter.logging.service.LoggingService;
 import lombok.extern.slf4j.Slf4j;
