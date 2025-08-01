@@ -4,7 +4,7 @@ gateway:
     # 限流配置
     rate-limit:
       # 是否启用限流功能
-      enabled: true
+      enabled: false
 
       # 滑动窗口配置
       sliding-window:
