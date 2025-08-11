@@ -21,6 +21,7 @@ import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.cloud.gateway.support.ipresolver.XForwardedRemoteAddressResolver;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -93,11 +94,18 @@ public class MicroserviceGatewayApplication {
                 // pure-admin-service路由配置 - 匹配/pure-admin-service/**路径
                 .route("pure-admin-service", r -> r.path("/pure-admin-service/**")
                         .filters(f -> f
-//                                .requestRateLimiter(c -> {
-//                                    c.setKeyResolver(myKeyResolver);
-//                                    c.setRateLimiter(ipRedisRateLimiter);
-//                                })
-                                .cacheRequestBody(byte[].class)
+                                /**
+                                 * java.lang.ClassCastException: class [B cannot be cast to class org.springframework.core.io.buffer.DataBuffer ([B is in module java.base of loader 'bootstrap'; org.springframework.core.io.buffer.DataBuffer is in unnamed module of loader 'app')
+                                 * 	at org.springframework.cloud.gateway.filter.AdaptCachedBodyGlobalFilter.filter(AdaptCachedBodyGlobalFilter.java:59)
+                                 * 	Suppressed: reactor.core.publisher.FluxOnAssembly$OnAssemblyException:
+                                 * Assembly trace from producer [reactor.core.publisher.MonoDefer] :
+                                 * 	reactor.core.publisher.Mono.defer(Mono.java:215)
+                                 * 	org.springframework.cloud.gateway.handler.FilteringWebHandler$DefaultGatewayFilterChain.filter(FilteringWebHandler.java:113)
+                                 * Error has been observed at the following site(s):
+                                 *
+                                 * cacheRequestBody(byte[].class) 会导致上述错误
+                                 */
+                                .cacheRequestBody(DataBuffer.class)
                                 .modifyResponseBody(byte[].class, byte[].class,
                                         (exchange, body) -> Mono.fromCallable(() -> {
                                             // 获取响应头中的Content-Type
